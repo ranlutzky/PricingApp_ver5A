@@ -3,7 +3,6 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { GOOGLE_SCRIPT_URL } from "../data/constants";
 
-//TEST GVAT//
 // פונקציית עזר להורדת Blob בצורה ישירה
 const downloadBlobFallback = (blob, fileName) => {
   const url = URL.createObjectURL(blob);
@@ -24,7 +23,6 @@ export const parsePriceMatrixSheet = (sheetData) => {
   const pricesSTD = {};
   const pricesHG = {};
 
-  // מיפוי שמות העמודות באקסל לפורמט המידות של האפליקציה
   const sizeMap = {
     '1 1/2"': '1.5"',
     '1.5"': '1.5"',
@@ -40,7 +38,6 @@ export const parsePriceMatrixSheet = (sheetData) => {
   };
 
   sheetData.forEach((row) => {
-    // ניקוי רווחים מכל מפתחות השורה אוטומטית (מטפל ברווחים נסתרים בכותרות)
     const cleanRow = {};
     Object.keys(row).forEach((k) => {
       cleanRow[k.trim()] = row[k];
@@ -53,11 +50,9 @@ export const parsePriceMatrixSheet = (sheetData) => {
     pricesSTD[code] = {};
     pricesHG[code] = {};
 
-    // סריקת המידות ורישום המחירים
     Object.keys(sizeMap).forEach((excelSizeHeader) => {
       const appSizeKey = sizeMap[excelSizeHeader];
 
-      // קריאת מחיר Standard (עם ניקוי פסיקים ובדיקת רווחים בכותרת)
       const val =
         cleanRow[excelSizeHeader] !== undefined
           ? cleanRow[excelSizeHeader]
@@ -68,7 +63,6 @@ export const parsePriceMatrixSheet = (sheetData) => {
         pricesSTD[code][appSizeKey] = stdPrice;
       }
 
-      // קריאת מחיר High Grade (עם ניקוי פסיקים בטוח)
       const hgHeader = `${excelSizeHeader}_HG`;
       const valHg =
         cleanRow[hgHeader] !== undefined
@@ -193,7 +187,6 @@ export const createGlobalPDFBlob = async (
 ) => {
   const doc = new jsPDF();
 
-  // 1. Logo Insertion
   try {
     const img = new Image();
     img.src = "/raphael_logo_final.png";
@@ -208,7 +201,6 @@ export const createGlobalPDFBlob = async (
     console.warn("Logo overlay skipped:", e);
   }
 
-  // Header Text
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(30, 41, 59);
@@ -217,12 +209,10 @@ export const createGlobalPDFBlob = async (
   doc.text(`Date: ${getFormattedDate()}`, 135, 38);
   doc.text(`Reference: ${ref}`, 135, 44);
 
-  // Customer Section
   doc.setFontSize(10);
   doc.text(`Attn: ${cust?.contactName || ""}`, 14, 48);
   doc.text(`Company: ${cust?.name || ""}`, 14, 54);
 
-  // Table Columns
   const tableColumn = [
     "No",
     "Model",
@@ -233,7 +223,6 @@ export const createGlobalPDFBlob = async (
     `Total (${currencySymbol})`,
   ];
 
-  // Table Body Rows
   const tableRows = items.map((item, idx) => {
     const fin = calculateRow(item, idx);
     let desc = PRODUCTS_DB[item.code]?.desc || item.description || "";
@@ -258,7 +247,6 @@ export const createGlobalPDFBlob = async (
     ];
   });
 
-  // Totals Rows Inside Table Grid
   tableRows.push([
     "",
     "",
@@ -303,14 +291,13 @@ export const createGlobalPDFBlob = async (
     },
   ]);
 
-  // Generate Table with Grid Theme
   doc.autoTable({
     startY: 62,
     head: [tableColumn],
     body: tableRows,
     theme: "grid",
     headStyles: {
-      fillColor: [15, 44, 89], // Dark Navy Blue
+      fillColor: [15, 44, 89],
       textColor: [255, 255, 255],
       fontStyle: "bold",
       halign: "center",
@@ -336,7 +323,6 @@ export const createGlobalPDFBlob = async (
 
   const finalY = doc.lastAutoTable.finalY + 12;
 
-  // Commercial Terms Section
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("Commercial Terms:", 14, finalY);
@@ -349,7 +335,6 @@ export const createGlobalPDFBlob = async (
   doc.text(`Delivery: ${terms.delivery}`, 85, finalY + 6);
   doc.text(`Validity: ${terms.validity}`, 85, finalY + 12);
 
-  // Sales Person Signature Section
   const sig = SIGNATURES[salesPerson] || SIGNATURES["OTHER"];
   const sigY = finalY + 26;
 
@@ -448,7 +433,6 @@ export const createGlobalExcelBlob = (
   return new Blob([wbout], { type: "application/octet-stream" });
 };
 
-// פונקציה לייצוא מחירון בסיס מלא לקובץ Excel מובנה
 export const exportMasterPriceListExcel = (
   PRODUCTS_DB,
   PRICES_STD_USD,
@@ -461,7 +445,6 @@ export const exportMasterPriceListExcel = (
 ) => {
   const wb = XLSX.utils.book_new();
 
-  // 1. Valves USD
   const valvesUSDData = [
     ["Code", "Description", "Size", "Price_STD_USD", "Price_HG_USD"],
   ];
@@ -474,7 +457,6 @@ export const exportMasterPriceListExcel = (
   const wsValvesUSD = XLSX.utils.aoa_to_sheet(valvesUSDData);
   XLSX.utils.book_append_sheet(wb, wsValvesUSD, "Valves_USD");
 
-  // 2. Valves EUR
   const valvesEURData = [
     ["Code", "Description", "Size", "Price_STD_EUR", "Price_HG_EUR"],
   ];
@@ -487,7 +469,6 @@ export const exportMasterPriceListExcel = (
   const wsValvesEUR = XLSX.utils.aoa_to_sheet(valvesEURData);
   XLSX.utils.book_append_sheet(wb, wsValvesEUR, "Valves_EUR");
 
-  // 3. Accessories
   const accData = [["Code", "Description", "Price_USD", "Price_EUR"]];
   if (ACCESSORIES_DB) {
     if (Array.isArray(ACCESSORIES_DB)) {
@@ -512,7 +493,6 @@ export const exportMasterPriceListExcel = (
   const wsAcc = XLSX.utils.aoa_to_sheet(accData);
   XLSX.utils.book_append_sheet(wb, wsAcc, "Accessories");
 
-  // 4. Diaphragms
   const diaData = [["Code", "Description", "Size", "Price_USD", "Price_EUR"]];
   if (DIAPHRAGMS_DB) {
     if (Array.isArray(DIAPHRAGMS_DB)) {
@@ -539,7 +519,6 @@ export const exportMasterPriceListExcel = (
   const wsDia = XLSX.utils.aoa_to_sheet(diaData);
   XLSX.utils.book_append_sheet(wb, wsDia, "Diaphragms");
 
-  // 5. Material Addons
   const addonsData = [["Category", "Material_Name", "Size", "Type", "Value"]];
   if (BODY_MATERIAL_ADDONS) {
     Object.keys(BODY_MATERIAL_ADDONS).forEach((cat) => {
@@ -558,7 +537,6 @@ export const exportMasterPriceListExcel = (
   const wsAddons = XLSX.utils.aoa_to_sheet(addonsData);
   XLSX.utils.book_append_sheet(wb, wsAddons, "Material_Addons");
 
-  // 6. Customer PriceLists
   const custPLData = [
     ["Customer_Name", "Assigned_PriceList"],
     ["Riego Pro", "USD_STD"],
@@ -567,11 +545,9 @@ export const exportMasterPriceListExcel = (
   const wsCustPL = XLSX.utils.aoa_to_sheet(custPLData);
   XLSX.utils.book_append_sheet(wb, wsCustPL, "Customer_PriceLists");
 
-  // הורדת הקובץ למחשב
   XLSX.writeFile(wb, "Raphael_Master_Pricelist.xlsx");
 };
 
-// פונקציית טעינת מחירון דרך Google Apps Script Proxy
 export const fetchMasterPriceListFromCloud = async () => {
   try {
     const url = `${GOOGLE_SCRIPT_URL}?action=getPriceList`;
@@ -588,7 +564,6 @@ export const fetchMasterPriceListFromCloud = async () => {
       );
     }
 
-    // המרת Base64 לטקסט ולמערך בייטים
     const binaryString = window.atob(result.data);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -598,40 +573,36 @@ export const fetchMasterPriceListFromCloud = async () => {
 
     let workbook;
     try {
-      // ניסיון קריאה כקובץ Excel בינארי (XLSX/XLS)
       workbook = XLSX.read(bytes, { type: "array" });
     } catch (binaryError) {
       console.warn("Binary read failed, fallback to text/CSV reading...");
-      // מענה גיבוי למקרה שהנתונים שהוחזרו מקודדים כ-CSV/Text
       workbook = XLSX.read(binaryString, { type: "string" });
     }
 
-    // פונקציית עזר פנימית מעודכנת לניקוי ונרמול מפתחות הגדלים באקסל
+    // פונקציית ניקוי נקייה, פשוטה ובטוחה למפתחות האקסל
     const cleanSheetData = (data) => {
       if (!Array.isArray(data)) return data;
       return data.map((row) => {
         const newRow = {};
         Object.keys(row).forEach((key) => {
           const val = row[key];
-          // נרמול אגרסיבי: הסרת מרכאות והמרת רצפי רווחים לרווח יחיד לצורך זיהוי אחיד
-          const cleanKey = key.replace(/["']/g, "").replace(/\s+/g, " ").trim();
+          const cleanKey = key.replace(/["']/g, "").trim();
 
-          if (cleanKey.includes("2 1/2") || cleanKey === "2 1/2") {
-            if (cleanKey.includes("HG")) {
+          // זיהוי בטוח למידה 2 1/2 על כל וריאציות הכתיבה שלה
+          if (cleanKey === "2 1/2" || cleanKey.includes("2 1/2")) {
+            if (key.includes("HG") || cleanKey.includes("HG")) {
               newRow['2.5"_HG'] = val;
             } else {
               newRow['2.5"'] = val;
             }
           } else {
-            // ניקוי מפתחות אחרים ושמירת ערכם
-            newRow[key.replace(/["']/g, "").trim()] = val;
+            newRow[key.trim()] = val;
           }
         });
         return newRow;
       });
     };
 
-    // קריאת הגיליון של הדולר
     const sheetUSD =
       workbook.Sheets["Valves_USD"] || workbook.Sheets[workbook.SheetNames[0]];
     const rawDataUSD = XLSX.utils.sheet_to_json(sheetUSD, { defval: "" });
@@ -639,7 +610,6 @@ export const fetchMasterPriceListFromCloud = async () => {
     const { pricesSTD: pricesUSD_STD, pricesHG: pricesUSD_HG } =
       parsePriceMatrixSheet(dataUSD);
 
-    // קריאת הגיליון של היורו
     const sheetEUR = workbook.Sheets["Valves_EUR"];
     let pricesEUR_STD = null;
     let pricesEUR_HG = null;
