@@ -579,7 +579,6 @@ export const fetchMasterPriceListFromCloud = async () => {
       workbook = XLSX.read(binaryString, { type: "string" });
     }
 
-    // פונקציית ניקוי נקייה, פשוטה ובטוחה למפתחות האקסל
     const cleanSheetData = (data) => {
       if (!Array.isArray(data)) return data;
       return data.map((row) => {
@@ -588,7 +587,6 @@ export const fetchMasterPriceListFromCloud = async () => {
           const val = row[key];
           const cleanKey = key.replace(/["']/g, "").trim();
 
-          // זיהוי בטוח למידה 2 1/2 על כל וריאציות הכתיבה שלה
           if (cleanKey === "2 1/2" || cleanKey.includes("2 1/2")) {
             if (key.includes("HG") || cleanKey.includes("HG")) {
               newRow['2.5"_HG'] = val;
@@ -606,6 +604,7 @@ export const fetchMasterPriceListFromCloud = async () => {
     const sheetUSD =
       workbook.Sheets["Valves_USD"] || workbook.Sheets[workbook.SheetNames[0]];
     const rawDataUSD = XLSX.utils.sheet_to_json(sheetUSD, { defval: "" });
+    console.log("Raw sheet data:", rawDataUSD);
     const dataUSD = cleanSheetData(rawDataUSD);
     const { pricesSTD: pricesUSD_STD, pricesHG: pricesUSD_HG } =
       parsePriceMatrixSheet(dataUSD);
