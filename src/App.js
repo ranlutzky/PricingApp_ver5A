@@ -161,11 +161,29 @@ export default function QuotationApp() {
   }, [items, cust, salesPerson, currency, terms, refSuffix, includePacking]);
 
   useEffect(() => {
+    // 1. טעינה מיידית מקומית כדי שלא יהיה מסך ריק או איבוד נתונים בריענון
+    const cachedData = localStorage.getItem("raphael_master_prices");
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setMasterData(parsed);
+      } catch (e) {
+        console.error("Failed to parse cached prices:", e);
+      }
+    }
+
+    // 2. טעינת הנתונים המעודכנים מהענן ברקע
     const loadCloudData = async () => {
       const cloudData = await fetchMasterPriceListFromCloud();
       if (cloudData) {
         console.log("🚀 DATA LOADED SUCCESSFULLY:", cloudData);
         setMasterData(cloudData);
+        // שמירה במטמון המקומי לשימוש בריענון הבא
+        localStorage.setItem(
+          "raphael_master_prices",
+          JSON.stringify(cloudData)
+        );
+
         const now = new Date();
         setSyncStatus({
           isOnline: true,
@@ -176,12 +194,6 @@ export default function QuotationApp() {
               hour: "2-digit",
               minute: "2-digit",
             }),
-        });
-      } else {
-        console.warn("Using local fallback data.");
-        setSyncStatus({
-          isOnline: false,
-          lastUpdated: "Offline (Local Data)",
         });
       }
     };
@@ -1203,4 +1215,4 @@ export default function QuotationApp() {
   );
 }
 
-//TEST//
+//TEST 2//
