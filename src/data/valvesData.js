@@ -2083,3 +2083,4 @@ export const PRICES_STD_USD = smartNormalizePrices(PRICES_STD_USD_RAW);
 export const PRICES_HG_USD = smartNormalizePrices(PRICES_HG_USD_RAW);
 export const PRICES_STD_EUR = smartNormalizePrices(PRICES_STD_EUR_RAW);
 export const PRICES_HG_EUR = smartNormalizePrices(PRICES_HG_EUR_RAW);
+//TEST//
