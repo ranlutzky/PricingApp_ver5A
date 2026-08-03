@@ -144,7 +144,16 @@ export default function QuotationApp() {
     lastUpdated: "Not synced",
   });
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [masterData, setMasterData] = useState(null);
+
+  // טעינה ראשונית של המחירון מהזיכרון המקומי עוד לפני רינדור המסך
+  const [masterData, setMasterData] = useState(() => {
+    try {
+      const cached = localStorage.getItem("raphael_master_prices");
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   // --- ALL EFFECTS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURN ---
   useEffect(() => {
