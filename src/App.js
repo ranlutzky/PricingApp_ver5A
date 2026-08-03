@@ -393,14 +393,17 @@ export default function QuotationApp() {
       if (!item.code || !item.size)
         return { unitPrice: 0, total: 0, trimAdder: 0 };
 
+      // בחירת טבלת הבסיס בהתאם למטבע ולנתונים הקיימים
       const baseTable =
-        masterData &&
-        masterData.PRICES_STD &&
-        Object.keys(masterData.PRICES_STD).length > 0
+        currency === "EUR"
+          ? masterData?.PRICES_EUR_STD &&
+            Object.keys(masterData.PRICES_EUR_STD).length > 0
+            ? masterData.PRICES_EUR_STD
+            : PRICES_STD_EUR
+          : masterData?.PRICES_STD &&
+            Object.keys(masterData.PRICES_STD).length > 0
           ? masterData.PRICES_STD
-          : currency === "USD"
-          ? PRICES_STD_USD
-          : PRICES_STD_EUR;
+          : PRICES_STD_USD;
 
       const basePrice = baseTable?.[item.code]?.[item.size] || 0;
       const discountedBase = basePrice * (1 - item.discount / 100);
@@ -410,17 +413,24 @@ export default function QuotationApp() {
       let trimAdder = 0;
       if (item.trimMat === "Full Sea Water Trim") trimAdder = 10000;
       else if (item.trimMat && item.trimMat !== "Copper/Brass") {
+        // בחירת טבלת ה-HG בהתאם למטבע ולנתונים הקיימים
         const hgTable =
-          masterData && masterData.PRICES_HG
+          currency === "EUR"
+            ? masterData?.PRICES_EUR_HG &&
+              Object.keys(masterData.PRICES_EUR_HG).length > 0
+              ? masterData.PRICES_EUR_HG
+              : PRICES_HG_EUR
+            : masterData?.PRICES_HG &&
+              Object.keys(masterData.PRICES_HG).length > 0
             ? masterData.PRICES_HG
-            : currency === "USD"
-            ? PRICES_HG_USD
-            : PRICES_HG_EUR;
+            : PRICES_HG_USD;
+
         trimAdder = Math.max(
           0,
           (hgTable?.[item.code]?.[item.size] || basePrice) - basePrice
         );
       }
+
       let unitPrice = discountedBase + bodyAdder + trimAdder;
       if (!ignoreMerge) {
         for (let i = index + 1; i < items.length; i++) {
