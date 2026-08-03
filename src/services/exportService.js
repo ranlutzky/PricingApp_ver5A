@@ -605,11 +605,37 @@ export const fetchMasterPriceListFromCloud = async () => {
       workbook = XLSX.read(binaryString, { type: "string" });
     }
 
+    // פונקציית עזר פנימית לניקוי מפתחות הגדלים באקסל
+    const cleanSheetData = (data) => {
+      if (!Array.isArray(data)) return data;
+      return data.map((row) => {
+        const newRow = {};
+        Object.keys(row).forEach((key) => {
+          const val = row[key];
+          const cleanKey = key.replace(/["']/g, "").trim();
+
+          // אם מדובר במידה 2 1/2 על כל וריאציות הרווחים שלה
+          if (cleanKey === "2 1/2" || cleanKey.includes("2 1/2")) {
+            if (key.includes("HG") || cleanKey.includes("HG")) {
+              newRow['2.5"_HG'] = val;
+            } else {
+              newRow['2.5"'] = val;
+            }
+          } else {
+            // שמירה על שאר המפתחות (כמו Code, Actuation והגדלים האחרים)
+            newRow[key.trim()] = val;
+          }
+        });
+        return newRow;
+      });
+    };
+
     // קריאת הגיליון של הדולר
     const sheetUSD =
       workbook.Sheets["Valves_USD"] || workbook.Sheets[workbook.SheetNames[0]];
-    const dataUSD = XLSX.utils.sheet_to_json(sheetUSD, { defval: "" });
-    console.log("Raw sheet data:", dataUSD);
+    const rawDataUSD = XLSX.utils.sheet_to_json(sheetUSD, { defval: "" });
+    const dataUSD = cleanSheetData(rawDataUSD); // הפעלת הנרמול כאן
+    // console.log("Cleaned sheet data:", dataUSD);
     const { pricesSTD: pricesUSD_STD, pricesHG: pricesUSD_HG } =
       parsePriceMatrixSheet(dataUSD);
 
@@ -618,11 +644,20 @@ export const fetchMasterPriceListFromCloud = async () => {
     let pricesEUR_STD = null;
     let pricesEUR_HG = null;
 
+    //console.log("Sheet EUR found?:", !!sheetEUR); // האם הוא מצא את הגיליון?
+
     if (sheetEUR) {
-      const dataEUR = XLSX.utils.sheet_to_json(sheetEUR, { defval: "" });
+      const rawDataEUR = XLSX.utils.sheet_to_json(sheetEUR, { defval: "" });
+      const dataEUR = cleanSheetData(rawDataEUR);
       const parsedEUR = parsePriceMatrixSheet(dataEUR);
       pricesEUR_STD = parsedEUR.pricesSTD;
       pricesEUR_HG = parsedEUR.pricesHG;
+      //console.log("Parsed EUR Prices sample:", pricesEUR_STD?.["FDV-DE0"]); // הדפסת מחיר לדוגמה ביורו
+    } else {
+      console.warn(
+        "Valves_EUR sheet NOT found in workbook. Available sheets:",
+        workbook.SheetNames
+      );
     }
 
     return {
