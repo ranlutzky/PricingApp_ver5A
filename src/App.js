@@ -242,7 +242,7 @@ export default function QuotationApp() {
   // --- CONDITIONAL RETURN FOR LOGIN SCREEN ---
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 relative">
         <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
           <div className="flex justify-center mb-6">
             <img
@@ -293,6 +293,11 @@ export default function QuotationApp() {
               Login
             </button>
           </form>
+        </div>
+
+        {/* כיתוב קרדיט בצד ימין למטה */}
+        <div className="absolute bottom-3 right-4 text-xs text-gray-400">
+          Created by Ran Lutzky, all rights reserved
         </div>
       </div>
     );
@@ -358,9 +363,27 @@ export default function QuotationApp() {
   };
 
   const duplicateRow = (index) => {
-    const itemToCopy = { ...items[index], id: Date.now() + Math.random() };
     const newItems = [...items];
-    newItems.splice(index + 1, 0, itemToCopy);
+    const itemsToCopy = [];
+
+    // הוספת השורה הראשית
+    itemsToCopy.push({ ...newItems[index], id: Date.now() + Math.random() });
+
+    // איסוף כל הפריטים הממוזגים שצמודים אליה מלמטה
+    let currentIndex = index + 1;
+    while (
+      currentIndex < newItems.length &&
+      newItems[currentIndex].isIncluded
+    ) {
+      itemsToCopy.push({
+        ...newItems[currentIndex],
+        id: Date.now() + Math.random() + itemsToCopy.length,
+      });
+      currentIndex++;
+    }
+
+    // הוספת כל הבלוק המשוכפל מיד אחרי השורה המקורית והפריטים שלה
+    newItems.splice(currentIndex, 0, ...itemsToCopy);
     setItems(newItems);
   };
 
@@ -400,59 +423,95 @@ export default function QuotationApp() {
   };
 
   const calculateRow = (item, index, ignoreMerge = false) => {
+    console.log("CHECK ITEM:", {
+      code: item.code,
+      size: item.size,
+      trimMat: item.trimMat,
+      discount: item.discount,
+    });
+
     if (!ignoreMerge && item.isIncluded)
       return { unitPrice: 0, total: 0, trimAdder: 0 };
+
     if (item.category !== CATEGORIES.FREE_TEXT && item.manualPrice) {
       const up = parseFloat(item.manualPrice) || 0;
       return { unitPrice: up, total: up * item.qty, trimAdder: 0 };
     }
+
     if (item.category === CATEGORIES.FREE_TEXT) {
       const up = parseFloat(item.price) || 0;
       return { unitPrice: up, total: up * item.qty, trimAdder: 0 };
     }
+
     if (item.category === CATEGORIES.VALVES) {
       if (!item.code || !item.size)
         return { unitPrice: 0, total: 0, trimAdder: 0 };
 
-      // בחירת טבלת הבסיס בהתאם למטבע ולנתונים הקיימים
-      const baseTable =
-        currency === "EUR"
-          ? masterData?.PRICES_EUR_STD &&
+      // 1. קביעה האם מדובר בטרים משודרג (HG)
+      const isHg =
+        item.trimMat &&
+        item.trimMat !== "Standard" &&
+        item.trimMat !== "Copper/Brass" &&
+        item.trimMat !== "Full Sea Water Trim";
+
+      // 2. בחירת טבלת המחירים בהתאם לסוג הטרים והמטבע
+      let baseTable;
+      if (currency === "EUR") {
+        baseTable = isHg
+          ? masterData?.PRICES_EUR_HG &&
+            Object.keys(masterData.PRICES_EUR_HG).length > 0
+            ? masterData.PRICES_EUR_HG
+            : PRICES_HG_EUR
+          : masterData?.PRICES_EUR_STD &&
             Object.keys(masterData.PRICES_EUR_STD).length > 0
-            ? masterData.PRICES_EUR_STD
-            : PRICES_STD_EUR
+          ? masterData.PRICES_EUR_STD
+          : PRICES_STD_EUR;
+      } else {
+        baseTable = isHg
+          ? masterData?.PRICES_HG &&
+            Object.keys(masterData.PRICES_HG).length > 0
+            ? masterData.PRICES_HG
+            : PRICES_HG_USD
           : masterData?.PRICES_STD &&
             Object.keys(masterData.PRICES_STD).length > 0
           ? masterData.PRICES_STD
           : PRICES_STD_USD;
+      }
 
-      const basePrice = baseTable?.[item.code]?.[item.size] || 0;
+      // 3. שליפת מחיר הבסיס מהטבלה שנבחרה
+      let basePrice = baseTable?.[item.code]?.[item.size] || 0;
+
+      // גיבוי: אם סומן HG אבל המחיר חסר בטבלת HG, נחזור לקחת מהטבלה הרגילה
+      if (isHg && basePrice === 0) {
+        const fallbackTable =
+          currency === "EUR"
+            ? masterData?.PRICES_EUR_STD &&
+              Object.keys(masterData.PRICES_EUR_STD).length > 0
+              ? masterData.PRICES_EUR_STD
+              : PRICES_STD_EUR
+            : masterData?.PRICES_STD &&
+              Object.keys(masterData.PRICES_STD).length > 0
+            ? masterData.PRICES_STD
+            : PRICES_STD_USD;
+        basePrice = fallbackTable?.[item.code]?.[item.size] || 0;
+      }
+
+      // 4. החלת ההנחה ישירות על מחיר המגוף
       const discountedBase = basePrice * (1 - item.discount / 100);
+
+      // 5. תוספות חומר גוף ומי ים
       const bodyAdder = item.bodyMat
         ? BODY_MATERIAL_ADDONS[item.bodyMat]?.[item.size] || 0
         : 0;
-      let trimAdder = 0;
-      if (item.trimMat === "Full Sea Water Trim") trimAdder = 10000;
-      else if (item.trimMat && item.trimMat !== "Copper/Brass") {
-        // בחירת טבלת ה-HG בהתאם למטבע ולנתונים הקיימים
-        const hgTable =
-          currency === "EUR"
-            ? masterData?.PRICES_EUR_HG &&
-              Object.keys(masterData.PRICES_EUR_HG).length > 0
-              ? masterData.PRICES_EUR_HG
-              : PRICES_HG_EUR
-            : masterData?.PRICES_HG &&
-              Object.keys(masterData.PRICES_HG).length > 0
-            ? masterData.PRICES_HG
-            : PRICES_HG_USD;
 
-        trimAdder = Math.max(
-          0,
-          (hgTable?.[item.code]?.[item.size] || basePrice) - basePrice
-        );
+      let trimAdder = 0;
+      if (item.trimMat === "Full Sea Water Trim") {
+        trimAdder = 10000;
       }
 
       let unitPrice = discountedBase + bodyAdder + trimAdder;
+
+      // 6. חישוב שורות ממוזגות
       if (!ignoreMerge) {
         for (let i = index + 1; i < items.length; i++) {
           if (items[i].isIncluded) {
@@ -1061,7 +1120,7 @@ export default function QuotationApp() {
                     </td>
                     <td className="px-2 py-3 text-center border border-gray-300">
                       <div className="flex flex-col gap-2 items-center justify-center">
-                        {!isValve && !isFreeText && (
+                        {!isValve && (
                           <button
                             onClick={() => toggleMerge(item.id, idx)}
                             className={`p-1 rounded-full border ${
@@ -1220,8 +1279,12 @@ export default function QuotationApp() {
           </div>
         )}
       </div>
+      {/* כיתוב קרדיט בתחתית המסך הראשי */}
+      <div className="text-center text-xs text-gray-400 py-4">
+        Created by Ran Lutzky, all rights reserved
+      </div>
     </div>
   );
 }
 
-//TEST 2//
+//TEST 18//
