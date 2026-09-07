@@ -9,6 +9,7 @@ export const SALES_PEOPLE = [
   "OTHER",
 ];
 
+
 export const SIGNATURES = {
   "RAN LUTZKY": {
     name: "Ran Lutzky",
